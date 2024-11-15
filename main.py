@@ -8,6 +8,9 @@ from datetime import datetime
 from dotenv import load_dotenv
 import os
 import praw
+from src.vacancy import Vacancy
+from src.files import JSONVacancySave
+from src.abs_api import HHAPI
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -48,9 +51,9 @@ def main_menu_keyboard():
     keyboard.add(types.KeyboardButton("Удалить задачу"))
     keyboard.add(types.KeyboardButton("Установить напоминание"))
     keyboard.add(types.KeyboardButton("Получить мем"))
-    keyboard.add(types.KeyboardButton("Сборки"))  # Изменено на "Сборки"
+    keyboard.add(types.KeyboardButton("Сборки"))
+    keyboard.add(types.KeyboardButton("Поиск работы"))
     return keyboard
-
 
 def load_todos():
     """Загружает задачи из JSON-файла."""
@@ -110,6 +113,44 @@ def handle_text(message):
     elif message.text == "Сборки":
         msg = bot.send_message(message.chat.id, "Введите имя чемпиона:")
         bot.register_next_step_handler(msg, process_champion_build)
+
+    elif message.text == "Поиск работы":
+        msg = bot.send_message(message.chat.id, "Введите поисковый запрос:")
+        bot.register_next_step_handler(msg, find_job)
+
+
+def find_job(message):
+    api = HHAPI()
+    api.connect()
+
+    storage = JSONVacancySave()
+    query = message.text.strip()
+    logger.info(f'User {message.from_user.username} find job: "{query}".')
+    vacancies_data = api.get_vacancies(query)
+    if vacancies_data:
+        vacancies = []
+        for v in vacancies_data:
+            title = v.get('name')
+            url = v.get('alternate_url')
+
+            salary_from = None
+            if 'salary' in v and v['salary'] is not None:
+                salary_from = v['salary'].get('from')
+
+            description = v.get('snippet', {}).get('requirement', '')
+
+            if title and url:
+                vacancies.append(Vacancy(title, url, salary_from, description))
+
+        storage.save_vacancies(vacancies)
+    else:
+        print("Вакансии не найдены.")
+    N = 3
+    vacancies = storage.load_vacancies()
+    top_vacancies = sorted(vacancies)[:N]
+    for vacancy in top_vacancies:
+        bot.send_message(message.chat.id, vacancy)
+
 
 
 def process_add_task(message, user_id):
