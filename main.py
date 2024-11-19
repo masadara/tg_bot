@@ -156,8 +156,8 @@ def find_job(message):
 def process_add_task(message, user_id):
     task = message.text.strip()
 
-    if task:  # Проверяем, что задача не пустая
-        add_todo(user_id, task)  # Добавляем задачу для текущего пользователя
+    if task:
+        add_todo(user_id, task)
         bot.send_message(message.chat.id, f'Задача "{task}" добавлена на сегодня.')
         logger.info(f'User {message.from_user.username} added task: "{task}".')
     else:
@@ -165,9 +165,8 @@ def process_add_task(message, user_id):
 
 
 def add_todo(user_id, task):
-    todos[user_id].append(task)  # Добавляем задачу в список задач пользователя
-    save_todos()  # Сохраняем изменения в файл
-
+    todos[user_id].append(task)
+    save_todos()
 
 def show_tasks(user_id, delete=False):
     if not todos[user_id]:
@@ -187,11 +186,11 @@ def show_tasks(user_id, delete=False):
 
 def process_delete_task(message, user_id):
     try:
-        task_number = int(message.text) - 1  # Преобразуем номер задачи в индекс (начинается с 0)
+        task_number = int(message.text) - 1
 
         if 0 <= task_number < len(todos[user_id]):
-            removed_task = todos[user_id].pop(task_number)  # Удаляем задачу из списка
-            save_todos()  # Сохраняем изменения в файл после удаления задачи
+            removed_task = todos[user_id].pop(task_number)
+            save_todos()
             bot.send_message(message.chat.id, f'Задача "{removed_task}" удалена.')
             logger.info(f'User {message.from_user.username} deleted task: "{removed_task}".')
         else:
@@ -217,7 +216,7 @@ def process_set_reminder(message, user_id):
 def schedule_reminder(message, reminder_time, user_id):
     task = message.text.strip()
 
-    if task:  # Проверяем на пустую задачу
+    if task:
         scheduler.add_job(send_reminder, 'date', run_date=reminder_time, args=[user_id, task])
         bot.send_message(user_id, f'Напоминание для задачи "{task}" установлено на {reminder_time}.')
         logger.info(f'Reminder set for user {user_id}: "{task}" at {reminder_time}.')
@@ -234,7 +233,6 @@ def send_random_meme(chat_id):
     try:
         subreddit = reddit.subreddit('memes')
 
-        # Получаем случайный пост из сабреддита.
         meme_submission = subreddit.random()
 
         if meme_submission and meme_submission.url.endswith(('jpg', 'jpeg', 'png')):
@@ -249,7 +247,6 @@ def send_random_meme(chat_id):
         bot.send_message(chat_id=chat_id, text="Произошла ошибка при получении мема.")
 
 
-# Запуск планировщика для отправки мемов каждые 2 часа
 scheduler = BackgroundScheduler()
 
 
@@ -273,7 +270,10 @@ def process_champion_build(message):
 
 
 def get_champion_build(champion_name):
-    url = f"https://mobalytics.gg/lol/champions/{champion_name.lower()}"
+    if champion_name.lower() == 'tft':
+        url = f"https://mobalytics.gg/tft"
+    else:
+        url = f"https://mobalytics.gg/lol/champions/{champion_name.lower()}"
 
     try:
         response = requests.get(url)
@@ -286,11 +286,9 @@ def get_champion_build(champion_name):
 
     return None
 
-# Запланируем отправку мема каждые 2 часа (7200 секунд)
 scheduler.add_job(schedule_meme, 'interval', hours=2)
 scheduler.start()
 
-# Запуск бота
 if __name__ == '__main__':
     logger.info('Bot is starting...')
     bot.polling(none_stop=True)
